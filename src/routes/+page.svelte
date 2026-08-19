@@ -1,37 +1,53 @@
 <script>
     import { onMount } from "svelte";
     import { createWorld } from "$lib/three/world.js";
-    import SceneOutliner from "$lib/components/SceneOutliner.svelte";
+    import { createNBodySimulation } from "$lib/three/physics/nbody.js";
+    import { bodiesStore } from "$lib/stores/bodies.svelte.js";
+    import BodyList from "$lib/components/BodyList.svelte";
+    import BodyInspector from "$lib/components/BodyInspector.svelte";
 
     let container;
     let world = $state(null);
-    let sceneVersion = $state(0);
 
-    let outlinerVisible = $state(true);
-    let panelVisible = $state(true);
+    let listVisible = $state(true);
+    let inspectorVisible = $state(true);
 
-    let wireframeVisible = $state(true);
-    let autoRotate = $state(false);
     let ambientLightVisible = $state(true);
     let hemisphereLightVisible = $state(false);
     let ambientIntensity = $state(1);
-    let orbitRunning = $state(true);
-    let orbitSpeedFactor = $state(1);
-    let orbitTrailVisible = $state(true);
+
+    const sim = createNBodySimulation(bodiesStore);
+    let simRunning = $state(false);
+    let gravityG = $state(1);
 
     onMount(() => {
         const w = createWorld(container);
-        w.onOrbitStop(() => (orbitRunning = false));
-        w.onSceneChange(() => sceneVersion++);
+        w.addUpdatable(sim);
         world = w;
         return w.dispose;
     });
 
     $effect(() => {
-        world?.setWireframeVisible(wireframeVisible);
+        sim.setG(gravityG);
     });
+
+    function toggleSim() {
+        if (simRunning) {
+            sim.pause();
+        } else {
+            sim.start();
+        }
+        simRunning = sim.running;
+    }
+
+    function resetSim() {
+        sim.reset();
+        simRunning = false;
+    }
+
     $effect(() => {
-        world?.setAutoRotate(autoRotate);
+        if (!world) return;
+        world.syncBodies($state.snapshot(bodiesStore.bodies), bodiesStore.selectedId);
     });
     $effect(() => {
         world?.setAmbientLightVisible(ambientLightVisible);
@@ -42,19 +58,16 @@
     $effect(() => {
         world?.setAmbientIntensity(ambientIntensity);
     });
-    $effect(() => {
-        world?.setOrbitEnabled(orbitRunning);
-    });
-    $effect(() => {
-        world?.setOrbitSpeedFactor(orbitSpeedFactor);
-    });
-    $effect(() => {
-        world?.setOrbitTrailVisible(orbitTrailVisible);
-    });
 
     const viewKeys = { 1: "front", 3: "right", 7: "top" };
     function handleKeydown(event) {
         if (event.metaKey || event.ctrlKey || event.altKey) return;
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+        if (event.key === " ") {
+            event.preventDefault();
+            toggleSim();
+            return;
+        }
         const view = viewKeys[event.key];
         if (view) world?.setView(view);
     }
@@ -66,66 +79,53 @@
     <div class="viewer" bind:this={container}></div>
 
     <button
-        class="toggle-tab outliner-tab"
-        onclick={() => (outlinerVisible = !outlinerVisible)}
+        class="toggle-tab list-tab"
+        onclick={() => (listVisible = !listVisible)}
     >
-        {outlinerVisible ? "‹" : "›"} Scene
+        {listVisible ? "‹" : "›"} Bodies
     </button>
 
-    {#if world && outlinerVisible}
-        <div class="outliner">
-            <SceneOutliner roots={[world.camera, world.scene]} refresh={sceneVersion} />
+    {#if listVisible}
+        <div class="list-panel">
+            <BodyList />
         </div>
     {/if}
 
     <button
-        class="toggle-tab panel-tab"
-        onclick={() => (panelVisible = !panelVisible)}
+        class="toggle-tab inspector-tab"
+        onclick={() => (inspectorVisible = !inspectorVisible)}
     >
-        Controls {panelVisible ? "›" : "‹"}
+        Inspector {inspectorVisible ? "›" : "‹"}
     </button>
 
-    {#if panelVisible}
-        <div class="panel">
-            <label>
-                <input type="checkbox" bind:checked={wireframeVisible} />
-                Wireframe
-            </label>
-            <label>
-                <input type="checkbox" bind:checked={autoRotate} />
-                Auto-rotate
-            </label>
-            <label>
-                <input type="checkbox" bind:checked={ambientLightVisible} />
-                Ambient light
-            </label>
-            <label>
-                <input type="checkbox" bind:checked={hemisphereLightVisible} />
-                Hemisphere light
-            </label>
-            <label class="slider">
-                Intensity
-                <input type="range" min="0" max="3" step="0.1" bind:value={ambientIntensity} />
-            </label>
-            <div class="orbit">
-                Orbit
+    {#if inspectorVisible}
+        <div class="inspector-panel">
+            <div class="sim-panel">
+                <div class="buttons">
+                    <button onclick={toggleSim}>
+                        {simRunning ? "Pause" : "Play"}
+                    </button>
+                    <button onclick={resetSim}>Reset</button>
+                </div>
+                <label class="slider">
+                    Gravity G {gravityG.toFixed(1)}
+                    <input type="range" min="0" max="5" step="0.1" bind:value={gravityG} />
+                </label>
+            </div>
+            <BodyInspector />
+            <div class="view-panel">
                 <label>
-                    <input type="checkbox" bind:checked={orbitTrailVisible} />
-                    Trail
+                    <input type="checkbox" bind:checked={ambientLightVisible} />
+                    Ambient light
+                </label>
+                <label>
+                    <input type="checkbox" bind:checked={hemisphereLightVisible} />
+                    Hemisphere light
                 </label>
                 <label class="slider">
-                    Launch speed ×{orbitSpeedFactor.toFixed(2)}
-                    <input type="range" min="0.5" max="1.5" step="0.05" bind:value={orbitSpeedFactor} />
+                    Intensity
+                    <input type="range" min="0" max="3" step="0.1" bind:value={ambientIntensity} />
                 </label>
-                <div class="buttons">
-                    <button onclick={() => (orbitRunning = true)} disabled={orbitRunning}>
-                        Start
-                    </button>
-                    <button onclick={() => (orbitRunning = false)} disabled={!orbitRunning}>
-                        Stop
-                    </button>
-                    <button onclick={() => world?.resetOrbit()}>Reset</button>
-                </div>
             </div>
         </div>
     {/if}
@@ -159,23 +159,33 @@
     .toggle-tab:hover {
         background: rgba(0, 0, 0, 0.75);
     }
-    .outliner-tab {
+    .list-tab {
         left: 1.5rem;
     }
-    .panel-tab {
+    .inspector-tab {
         right: 1.5rem;
     }
-    .outliner {
+    .list-panel {
         position: absolute;
         top: 3.25rem;
         left: 1.5rem;
         width: 16rem;
         max-height: calc(100vh - 4.75rem);
+        overflow-y: auto;
     }
-    .panel {
+    .inspector-panel {
         position: absolute;
         top: 3.25rem;
         right: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 16rem;
+        max-height: calc(100vh - 4.75rem);
+        overflow-y: auto;
+    }
+    .sim-panel,
+    .view-panel {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -186,27 +196,11 @@
         font: 0.875rem/1.2 system-ui, sans-serif;
         backdrop-filter: blur(4px);
     }
-    .panel label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        white-space: nowrap;
-    }
-    .panel .slider {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.25rem;
-    }
-    .panel .orbit {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-    .panel .buttons {
+    .sim-panel .buttons {
         display: flex;
         gap: 0.5rem;
     }
-    .panel button {
+    .sim-panel button {
         flex: 1;
         padding: 0.25rem 0.5rem;
         background: rgba(255, 255, 255, 0.15);
@@ -216,11 +210,20 @@
         font: inherit;
         cursor: pointer;
     }
-    .panel button:hover:not(:disabled) {
+    .sim-panel button:hover {
         background: rgba(255, 255, 255, 0.3);
     }
-    .panel button:disabled {
-        opacity: 0.4;
-        cursor: default;
+    .sim-panel .slider,
+    .view-panel .slider {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+    }
+    .sim-panel label,
+    .view-panel label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
     }
 </style>

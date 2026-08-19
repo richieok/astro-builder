@@ -1,6 +1,6 @@
-# project-astro
+# astro-builder
 
-A SvelteKit + Three.js playground for an interactive gravity-orbit scene: an icosahedron sits at the center of a simple gravitational field, and a small arrow object orbits it under real physics integration, all viewable and adjustable through an on-screen control panel.
+A SvelteKit + Three.js app for building astro-mechanical models. The scene starts empty; you add celestial bodies one by one, give each a mass, a position, and a velocity in 3D space through an inspector panel, then press Play to run an N-body gravity simulation over them.
 
 ## Stack
 
@@ -38,11 +38,18 @@ Preview it locally with `bun run preview`.
 ```
 src/
 ├── routes/
-│   ├── +page.svelte        # main scene view: 3D viewer + control panel
-│   └── tools/               # tab-panel UI scaffold (WIP)
+│   └── +page.svelte         # the app: 3D viewport + Bodies list + Inspector
 └── lib/
+    ├── stores/
+    │   └── bodies.svelte.js # runes store: bodies array + selection (single source of truth)
+    ├── components/
+    │   ├── BodyList.svelte      # left panel: add, select, delete bodies
+    │   ├── BodyInspector.svelte # right panel: edit name/mass/position/radius/color
+    │   ├── SceneOutliner.svelte # generic Three.js scene-graph tree (debug tool, unwired)
+    │   └── SceneTreeNode.svelte
     └── three/
-        ├── world.js         # scene assembly: camera, lights, mesh, orbit, overlays
+        ├── world.js         # scene assembly: camera, lights, grid, bodies view, overlays
+        ├── bodiesView.js    # sync layer: diffs store bodies → sphere meshes (Map<id, Mesh>)
         ├── scene.js         # Scene() factory
         ├── camera.js        # PerspectiveCamera factory
         ├── renderer.js      # WebGLRenderer factory
@@ -50,33 +57,54 @@ src/
         ├── lights.js        # ambient + hemisphere lights
         ├── materials.js     # shared material factories
         ├── objects/
-        │   └── icosahedron.js   # central body + wireframe overlay
+        │   └── bodyMesh.js  # body sphere factory (shared unit geometry, radius via scale)
         ├── physics/
-        │   └── gravity.js       # semi-implicit Euler gravity integration
+        │   └── nbody.js     # pairwise gravity, semi-implicit Euler, play/pause/reset
         ├── helpers/
-        │   ├── axesGizmo.js      # camera-orientation gizmo (bottom-left corner)
-        │   └── velocityArrows.js # x/y/z velocity vectors on the orbiting body
-        ├── loaders/
-        │   └── gltf.js       # GLTF loading helper
+        │   └── axesGizmo.js # camera-orientation gizmo (bottom-left corner)
         ├── systems/
-        │   └── loop.js       # render loop: updatables + post-render overlays
+        │   └── loop.js      # render loop: updatables + post-render overlays
         └── utils/
-            └── applyMaterial.js
+            ├── applyMaterial.js
+            └── nodeColor.js
 ```
 
-## Scene features
+## How it works
 
-The main view (`/`) renders a central icosahedron with a small arrow orbiting it under a simple inverse-square gravity model. The control panel (top-right) lets you toggle:
+Bodies live in a single Svelte 5 runes store (`$lib/stores/bodies.svelte.js`). Each body is plain, serializable data:
 
-- Wireframe overlay on the central body
-- Auto-rotation of the central body
-- Ambient and hemisphere lighting, with adjustable intensity
-- The orbit: start/stop/reset, and launch speed multiplier
+```js
+{
+  id, name,
+  mass,                       // arbitrary units for now
+  position: { x, y, z },      // scene units
+  velocity: { x, y, z },      // scene units per second, drawn as an arrow
+  radius,                     // display radius
+  color                       // hex string
+}
+```
 
-Additional viewport aids:
+The UI panels bind directly to the store. A single `$effect` in `+page.svelte` snapshots the store on any change and calls `world.syncBodies(...)`; `bodiesView.js` diffs that data against its `Map` of id → mesh — creating, removing, and updating spheres inside a "Bodies" group. Three.js never touches Svelte proxies, and the store never touches Three.js objects.
 
-- **Axes gizmo** — a small X/Y/Z indicator in the bottom-left corner that mirrors the main camera's orientation, so you can always tell how the scene is currently oriented.
-- **Velocity arrows** — three colored arrows anchored to the orbiting body, one per axis, whose lengths scale with that axis's component of the body's velocity.
-- **View shortcuts** — press `1` for a front view, `3` for a right-side view (+X), or `7` for a top-down view (+Y), each keeping the current zoom distance from the OrbitControls target.
+The model persists across page refreshes: the store hydrates from `localStorage` (key `astro-builder:model`) on load, and a deep-tracking effect saves bodies, selection, and the name counter on every change. Clear the key in DevTools to reset the scene.
 
-An in-progress `/tools` route contains a standalone tab-panel component scaffold, not yet wired to the 3D scene.
+The simulation (`$lib/three/physics/nbody.js`) rides the same seam: pushed into the render loop's `updatables`, it integrates pairwise Newtonian gravity (semi-implicit Euler with softening) directly against the store each frame, and the sync effect carries the moving positions to the meshes. Play snapshots the initial conditions; Reset restores them. The localStorage save is debounced so the running simulation doesn't write every frame.
+
+## Using the app
+
+- **＋ Add body** (left panel) creates a sphere, offset along X so new bodies don't overlap, and selects it.
+- **Click a row** to select a body; the selected sphere is highlighted. **×** deletes it.
+- **Inspector** (right panel) edits the selected body's name, mass, position X/Y/Z, velocity X/Y/Z, radius (number input + slider), and color, all updating the scene live. A body's velocity is drawn as a yellow arrow from its surface, scaled by speed.
+- **Simulation** (top of the right panel): Play/Pause (or press `Space`) runs N-body gravity over all bodies; Reset restores the positions and velocities from when Play was first pressed. The G slider tunes gravitational strength. For a circular orbit around a heavy body, aim for tangential speed √(G·M/r).
+- A **View** section below the inspector toggles ambient/hemisphere lighting and intensity.
+
+Viewport aids:
+
+- **Grid** — a ground-plane grid for spatial reference.
+- **Axes gizmo** — a small X/Y/Z indicator in the bottom-left corner that mirrors the main camera's orientation.
+- **View shortcuts** — press `1` for a front view, `3` for a right-side view (+X), or `7` for a top-down view (+Y), each keeping the current zoom distance from the OrbitControls target. Ignored while typing in an input field.
+
+## Docker
+
+- `./dev.sh` — dev server in a container with file-watch sync (`docker compose up --build --watch`); `./dev-down.sh` tears it down.
+- `docker compose -f compose.prod.yml up` — production build served by Bun on port 3000.
