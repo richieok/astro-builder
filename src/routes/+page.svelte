@@ -1,7 +1,7 @@
 <script>
     import { onMount } from "svelte";
     import { createWorld } from "$lib/three/world.js";
-    import { createNBodySimulation } from "$lib/three/physics/nbody.js";
+    import { createNBodySimulation } from "$lib/three/physics/nbody.svelte.js";
     import { bodiesStore } from "$lib/stores/bodies.svelte.js";
     import { overlaysStore } from "$lib/stores/overlays.svelte.js";
     import BodyList from "$lib/components/BodyList.svelte";
