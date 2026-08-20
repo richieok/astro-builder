@@ -7,12 +7,32 @@
     const others = $derived(bodiesStore.bodies.filter((b) => b.id !== body?.id));
 
     let targetId = $state(null);
+    let lastBodyId = undefined;
+
+    function defaultTargetId() {
+        if (!body) return null;
+        const heaviestOther = others.reduce((max, b) => (!max || b.mass > max.mass ? b : max), null);
+        if (!heaviestOther) return null;
+        // If the selected body is already the heaviest thing around, it's
+        // not the one that should be doing the orbiting — default to None
+        // rather than a physically backwards pick.
+        if (body.mass >= heaviestOther.mass) return null;
+        return heaviestOther.id;
+    }
 
     $effect(() => {
-        if (others.some((b) => b.id === targetId)) return;
-        // Default to the most massive other body — the most likely thing
-        // a satellite would orbit.
-        targetId = others.reduce((max, b) => (!max || b.mass > max.mass ? b : max), null)?.id ?? null;
+        const currentBodyId = body?.id ?? null;
+        if (currentBodyId !== lastBodyId) {
+            // Selection changed — recompute the default from scratch.
+            lastBodyId = currentBodyId;
+            targetId = defaultTargetId();
+            return;
+        }
+        // Same selection: only step in if the chosen target disappeared
+        // (e.g. deleted), so we don't stomp on a deliberate manual pick.
+        if (targetId !== null && !others.some((b) => b.id === targetId)) {
+            targetId = defaultTargetId();
+        }
     });
 
     const target = $derived(others.find((b) => b.id === targetId) ?? null);
@@ -62,12 +82,13 @@
         <label>
             Orbit around
             <select bind:value={targetId}>
+                <option value={null}>None</option>
                 {#each others as other (other.id)}
                     <option value={other.id}>{other.name}</option>
                 {/each}
             </select>
         </label>
-        <button onclick={setOrbitalVelocity}>Set orbital velocity</button>
+        <button onclick={setOrbitalVelocity} disabled={!target}>Set orbital velocity</button>
     </div>
 {/if}
 
@@ -110,5 +131,10 @@
     }
     button:hover {
         background: rgba(255, 255, 255, 0.3);
+    }
+    button:disabled {
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: not-allowed;
     }
 </style>
