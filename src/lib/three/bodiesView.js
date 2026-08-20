@@ -20,17 +20,25 @@ export function createBodiesView(scene) {
 	group.name = 'Bodies';
 	scene.add(group);
 
+	const arrowsGroup = new THREE.Group();
+	arrowsGroup.name = 'Velocity arrows';
+	group.add(arrowsGroup);
+
+	const axisArrowsGroup = new THREE.Group();
+	axisArrowsGroup.name = 'Axis velocity arrows';
+	group.add(axisArrowsGroup);
+
 	const entries = new Map();
 
 	function removeEntry(id) {
 		const entry = entries.get(id);
 		if (!entry) return;
 		group.remove(entry.mesh);
-		group.remove(entry.arrow);
+		arrowsGroup.remove(entry.arrow);
 		disposeBodyMesh(entry.mesh);
 		entry.arrow.dispose();
 		for (const axisArrow of entry.axisArrows) {
-			group.remove(axisArrow);
+			axisArrowsGroup.remove(axisArrow);
 			axisArrow.dispose();
 		}
 		entries.delete(id);
@@ -61,11 +69,11 @@ export function createBodiesView(scene) {
 							AXIS_COLORS[i]
 						);
 						axisArrow.name = `${body.name} velocity ${'xyz'[i]}`;
-						group.add(axisArrow);
+						axisArrowsGroup.add(axisArrow);
 						return axisArrow;
 					});
 					group.add(mesh);
-					group.add(arrow);
+					arrowsGroup.add(arrow);
 					entry = { mesh, arrow, axisArrows };
 					entries.set(body.id, entry);
 				}
@@ -107,6 +115,12 @@ export function createBodiesView(scene) {
 		},
 		getMesh(id) {
 			return entries.get(id)?.mesh;
+		},
+		setVelocityArrowsVisible(visible) {
+			arrowsGroup.visible = visible;
+		},
+		setAxisVelocityArrowsVisible(visible) {
+			axisArrowsGroup.visible = visible;
 		},
 		dispose() {
 			for (const id of [...entries.keys()]) {

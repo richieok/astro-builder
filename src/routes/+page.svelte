@@ -3,13 +3,16 @@
     import { createWorld } from "$lib/three/world.js";
     import { createNBodySimulation } from "$lib/three/physics/nbody.js";
     import { bodiesStore } from "$lib/stores/bodies.svelte.js";
+    import { overlaysStore } from "$lib/stores/overlays.svelte.js";
     import BodyList from "$lib/components/BodyList.svelte";
     import BodyInspector from "$lib/components/BodyInspector.svelte";
+    import OverlayList from "$lib/components/OverlayList.svelte";
 
     let container;
     let world = $state(null);
 
     let listVisible = $state(true);
+    let listTab = $state("bodies");
     let inspectorVisible = $state(true);
 
     let ambientLightVisible = $state(true);
@@ -58,6 +61,18 @@
     $effect(() => {
         world?.setAmbientIntensity(ambientIntensity);
     });
+    $effect(() => {
+        world?.setGridVisible(overlaysStore.grid);
+    });
+    $effect(() => {
+        world?.setAxesGizmoVisible(overlaysStore.axesGizmo);
+    });
+    $effect(() => {
+        world?.setVelocityArrowsVisible(overlaysStore.velocityArrows);
+    });
+    $effect(() => {
+        world?.setAxisVelocityArrowsVisible(overlaysStore.axisVelocityArrows);
+    });
 
     const viewKeys = { 1: "front", 3: "right", 7: "top" };
     function handleKeydown(event) {
@@ -87,7 +102,29 @@
 
     {#if listVisible}
         <div class="list-panel">
-            <BodyList />
+            <div class="tab-bar">
+                <button
+                    class="tab"
+                    class:active={listTab === "bodies"}
+                    onclick={() => (listTab = "bodies")}
+                >
+                    Bodies
+                </button>
+                <button
+                    class="tab"
+                    class:active={listTab === "overlays"}
+                    onclick={() => (listTab = "overlays")}
+                >
+                    Overlays
+                </button>
+            </div>
+            {#if listTab === "bodies"}
+                <BodyList />
+            {:else}
+                <div class="overlays-panel">
+                    <OverlayList />
+                </div>
+            {/if}
         </div>
     {/if}
 
@@ -169,9 +206,45 @@
         position: absolute;
         top: 3.25rem;
         left: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         width: 16rem;
         max-height: calc(100vh - 4.75rem);
         overflow-y: auto;
+    }
+    .tab-bar {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 0.5rem;
+        backdrop-filter: blur(4px);
+    }
+    .tab {
+        flex: 1;
+        padding: 0.3rem 0.5rem;
+        background: none;
+        color: rgba(255, 255, 255, 0.6);
+        border: none;
+        border-radius: 0.25rem;
+        font: 0.8125rem/1.2 system-ui, sans-serif;
+        cursor: pointer;
+    }
+    .tab:hover {
+        color: #fff;
+    }
+    .tab.active {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+    .overlays-panel {
+        padding: 0.75rem;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        border-radius: 0.5rem;
+        font: 0.875rem/1.2 system-ui, sans-serif;
+        backdrop-filter: blur(4px);
     }
     .inspector-panel {
         position: absolute;
