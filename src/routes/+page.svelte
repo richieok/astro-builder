@@ -7,6 +7,7 @@
     import BodyList from "$lib/components/BodyList.svelte";
     import BodyInspector from "$lib/components/BodyInspector.svelte";
     import OverlayList from "$lib/components/OverlayList.svelte";
+    import OrbitControl from "$lib/components/OrbitControl.svelte";
 
     let container;
     let world = $state(null);
@@ -125,6 +126,7 @@
                     <OverlayList />
                 </div>
             {/if}
+            <OrbitControl {gravityG} />
         </div>
     {/if}
 
