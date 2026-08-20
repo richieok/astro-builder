@@ -11,6 +11,10 @@ const AXIS_DIRECTIONS = [
 	new THREE.Vector3(0, 0, 1)
 ];
 const MIN_SPEED = 1e-4;
+// Cap how far a velocity arrow can grow past the body's surface, so a
+// fast-moving body (e.g. after a mass increase elsewhere skews gravity)
+// doesn't produce an arrow that dwarfs the scene.
+const MAX_ARROW_LENGTH = 2;
 
 const _velocity = new THREE.Vector3();
 const _direction = new THREE.Vector3();
@@ -90,8 +94,8 @@ export function createBodiesView(scene) {
 					arrow.visible = true;
 					arrow.position.copy(mesh.position);
 					arrow.setDirection(_direction.copy(_velocity).divideScalar(speed));
-					// arrow starts at the surface, length scales with speed
-					arrow.setLength(body.radius + speed, 0.2, 0.1);
+					// arrow starts at the surface, length scales with speed (capped)
+					arrow.setLength(body.radius + Math.min(speed, MAX_ARROW_LENGTH), 0.2, 0.1);
 				} else {
 					arrow.visible = false;
 				}
@@ -106,7 +110,7 @@ export function createBodiesView(scene) {
 						axisArrow.setDirection(
 							_direction.copy(AXIS_DIRECTIONS[i]).multiplyScalar(Math.sign(components[i]))
 						);
-						axisArrow.setLength(body.radius + magnitude, 0.15, 0.075);
+						axisArrow.setLength(body.radius + Math.min(magnitude, MAX_ARROW_LENGTH), 0.15, 0.075);
 					} else {
 						axisArrow.visible = false;
 					}
