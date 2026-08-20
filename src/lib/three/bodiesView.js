@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { createBodyMesh, disposeBodyMesh } from './objects/bodyMesh.js';
-import {
-	createVelocityLabel,
-	disposeVelocityLabel,
-	setVelocityLabelSize,
-	updateVelocityLabel
-} from './objects/velocityLabel.js';
 
 const SELECTED_EMISSIVE = 0x666666;
 const ARROW_COLOR = 0xffcc44;
+// Matches the axes gizmo's X/Y/Z colors.
+const AXIS_COLORS = [0xff4444, 0x44cc44, 0x4488ff];
+const AXIS_DIRECTIONS = [
+	new THREE.Vector3(1, 0, 0),
+	new THREE.Vector3(0, 1, 0),
+	new THREE.Vector3(0, 0, 1)
+];
 const MIN_SPEED = 1e-4;
-const LABEL_GAP = 0.25; // world units above the body's surface
-const LABEL_MIN_HEIGHT = 0.6;
 
 const _velocity = new THREE.Vector3();
+const _direction = new THREE.Vector3();
 
 export function createBodiesView(scene) {
 	const group = new THREE.Group();
@@ -27,10 +27,12 @@ export function createBodiesView(scene) {
 		if (!entry) return;
 		group.remove(entry.mesh);
 		group.remove(entry.arrow);
-		group.remove(entry.label);
 		disposeBodyMesh(entry.mesh);
 		entry.arrow.dispose();
-		disposeVelocityLabel(entry.label);
+		for (const axisArrow of entry.axisArrows) {
+			group.remove(axisArrow);
+			axisArrow.dispose();
+		}
 		entries.delete(id);
 	}
 
@@ -51,15 +53,23 @@ export function createBodiesView(scene) {
 						ARROW_COLOR
 					);
 					arrow.name = `${body.name} velocity`;
-					const label = createVelocityLabel();
-					label.name = `${body.name} velocity readout`;
+					const axisArrows = AXIS_DIRECTIONS.map((direction, i) => {
+						const axisArrow = new THREE.ArrowHelper(
+							direction,
+							new THREE.Vector3(),
+							1,
+							AXIS_COLORS[i]
+						);
+						axisArrow.name = `${body.name} velocity ${'xyz'[i]}`;
+						group.add(axisArrow);
+						return axisArrow;
+					});
 					group.add(mesh);
 					group.add(arrow);
-					group.add(label);
-					entry = { mesh, arrow, label, lastVelocityText: null };
+					entry = { mesh, arrow, axisArrows };
 					entries.set(body.id, entry);
 				}
-				const { mesh, arrow, label } = entry;
+				const { mesh, arrow, axisArrows } = entry;
 				mesh.name = body.name;
 				mesh.position.set(body.position.x, body.position.y, body.position.z);
 				mesh.scale.setScalar(body.radius);
@@ -71,28 +81,27 @@ export function createBodiesView(scene) {
 				if (speed > MIN_SPEED) {
 					arrow.visible = true;
 					arrow.position.copy(mesh.position);
-					arrow.setDirection(_velocity.divideScalar(speed));
+					arrow.setDirection(_direction.copy(_velocity).divideScalar(speed));
 					// arrow starts at the surface, length scales with speed
 					arrow.setLength(body.radius + speed, 0.2, 0.1);
 				} else {
 					arrow.visible = false;
 				}
 
-				setVelocityLabelSize(label, Math.max(body.radius * 1.2, LABEL_MIN_HEIGHT));
-				label.position.set(
-					mesh.position.x,
-					mesh.position.y + body.radius + LABEL_GAP + label.scale.y / 2,
-					mesh.position.z
-				);
-				const components = [
-					body.velocity.x.toFixed(2),
-					body.velocity.y.toFixed(2),
-					body.velocity.z.toFixed(2)
-				];
-				const velocityText = components.join('|');
-				if (entry.lastVelocityText !== velocityText) {
-					updateVelocityLabel(label, components);
-					entry.lastVelocityText = velocityText;
+				const components = [_velocity.x, _velocity.y, _velocity.z];
+				for (let i = 0; i < 3; i++) {
+					const axisArrow = axisArrows[i];
+					const magnitude = Math.abs(components[i]);
+					if (magnitude > MIN_SPEED) {
+						axisArrow.visible = true;
+						axisArrow.position.copy(mesh.position);
+						axisArrow.setDirection(
+							_direction.copy(AXIS_DIRECTIONS[i]).multiplyScalar(Math.sign(components[i]))
+						);
+						axisArrow.setLength(body.radius + magnitude, 0.15, 0.075);
+					} else {
+						axisArrow.visible = false;
+					}
 				}
 			}
 		},
