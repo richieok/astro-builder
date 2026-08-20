@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { createBodyMesh, disposeBodyMesh } from './objects/bodyMesh.js';
 import {
-	createSpeedLabel,
-	disposeSpeedLabel,
-	setSpeedLabelSize,
-	updateSpeedLabel
-} from './objects/speedLabel.js';
+	createVelocityLabel,
+	disposeVelocityLabel,
+	setVelocityLabelSize,
+	updateVelocityLabel
+} from './objects/velocityLabel.js';
 
 const SELECTED_EMISSIVE = 0x666666;
 const ARROW_COLOR = 0xffcc44;
 const MIN_SPEED = 1e-4;
 const LABEL_GAP = 0.25; // world units above the body's surface
-const LABEL_MIN_HEIGHT = 0.3;
+const LABEL_MIN_HEIGHT = 0.6;
 
 const _velocity = new THREE.Vector3();
 
@@ -30,7 +30,7 @@ export function createBodiesView(scene) {
 		group.remove(entry.label);
 		disposeBodyMesh(entry.mesh);
 		entry.arrow.dispose();
-		disposeSpeedLabel(entry.label);
+		disposeVelocityLabel(entry.label);
 		entries.delete(id);
 	}
 
@@ -51,12 +51,12 @@ export function createBodiesView(scene) {
 						ARROW_COLOR
 					);
 					arrow.name = `${body.name} velocity`;
-					const label = createSpeedLabel();
-					label.name = `${body.name} speed`;
+					const label = createVelocityLabel();
+					label.name = `${body.name} velocity readout`;
 					group.add(mesh);
 					group.add(arrow);
 					group.add(label);
-					entry = { mesh, arrow, label, lastSpeedText: null };
+					entry = { mesh, arrow, label, lastVelocityText: null };
 					entries.set(body.id, entry);
 				}
 				const { mesh, arrow, label } = entry;
@@ -78,16 +78,21 @@ export function createBodiesView(scene) {
 					arrow.visible = false;
 				}
 
+				setVelocityLabelSize(label, Math.max(body.radius * 1.2, LABEL_MIN_HEIGHT));
 				label.position.set(
 					mesh.position.x,
-					mesh.position.y + body.radius + LABEL_GAP,
+					mesh.position.y + body.radius + LABEL_GAP + label.scale.y / 2,
 					mesh.position.z
 				);
-				setSpeedLabelSize(label, Math.max(body.radius * 0.6, LABEL_MIN_HEIGHT));
-				const speedText = speed.toFixed(2);
-				if (entry.lastSpeedText !== speedText) {
-					updateSpeedLabel(label, speedText);
-					entry.lastSpeedText = speedText;
+				const components = [
+					body.velocity.x.toFixed(2),
+					body.velocity.y.toFixed(2),
+					body.velocity.z.toFixed(2)
+				];
+				const velocityText = components.join('|');
+				if (entry.lastVelocityText !== velocityText) {
+					updateVelocityLabel(label, components);
+					entry.lastVelocityText = velocityText;
 				}
 			}
 		},

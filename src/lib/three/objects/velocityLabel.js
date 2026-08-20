@@ -1,12 +1,14 @@
 import { CanvasTexture, Sprite, SpriteMaterial } from 'three';
 
-const CANVAS_WIDTH = 160;
-const CANVAS_HEIGHT = 64;
-const TEXT_COLOR = '#ffcc44';
+const CANVAS_WIDTH = 200;
+const CANVAS_HEIGHT = 150;
+const ROW_HEIGHT = 48;
+// Matches the axes gizmo's X/Y/Z label colors.
+const AXIS_COLORS = ['#ff4444', '#44cc44', '#4488ff'];
 
 export const LABEL_ASPECT = CANVAS_WIDTH / CANVAS_HEIGHT;
 
-export function createSpeedLabel() {
+export function createVelocityLabel() {
 	const canvas = document.createElement('canvas');
 	canvas.width = CANVAS_WIDTH;
 	canvas.height = CANVAS_HEIGHT;
@@ -22,24 +24,26 @@ export function createSpeedLabel() {
 	return sprite;
 }
 
-export function setSpeedLabelSize(sprite, height) {
+export function setVelocityLabelSize(sprite, height) {
 	sprite.scale.set(height * LABEL_ASPECT, height, 1);
 }
 
-export function updateSpeedLabel(sprite, text) {
+export function updateVelocityLabel(sprite, components) {
 	const { ctx, canvas, texture } = sprite.userData;
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	ctx.font = 'bold 36px sans-serif';
+	ctx.font = 'bold 34px sans-serif';
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
 	ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
 	ctx.shadowBlur = 6;
-	ctx.fillStyle = TEXT_COLOR;
-	ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+	for (let i = 0; i < 3; i++) {
+		ctx.fillStyle = AXIS_COLORS[i];
+		ctx.fillText(components[i], canvas.width / 2, ROW_HEIGHT / 2 + i * ROW_HEIGHT + 3);
+	}
 	texture.needsUpdate = true;
 }
 
-export function disposeSpeedLabel(sprite) {
+export function disposeVelocityLabel(sprite) {
 	sprite.userData.texture.dispose();
 	sprite.material.dispose();
 }
