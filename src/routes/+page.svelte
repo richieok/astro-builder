@@ -8,6 +8,7 @@
     import BodyInspector from "$lib/components/BodyInspector.svelte";
     import OverlayList from "$lib/components/OverlayList.svelte";
     import OrbitControl from "$lib/components/OrbitControl.svelte";
+    import ProjectControls from "$lib/components/ProjectControls.svelte";
 
     let container;
     let world = $state(null);
@@ -103,6 +104,7 @@
 
     {#if listVisible}
         <div class="list-panel">
+            <ProjectControls />
             <div class="tab-bar">
                 <button
                     class="tab"

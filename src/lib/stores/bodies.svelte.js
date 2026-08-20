@@ -3,18 +3,21 @@ import { browser } from '$app/environment';
 const DEFAULT_COLOR = '#4f9cf0';
 const STORAGE_KEY = 'astro-builder:model';
 
+function normalizeModel(model) {
+	if (!model || !Array.isArray(model.bodies)) return null;
+	// migrate models saved before velocity existed
+	for (const body of model.bodies) {
+		body.velocity ??= { x: 0, y: 0, z: 0 };
+	}
+	return model;
+}
+
 function loadSaved() {
 	if (!browser) return null;
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return null;
-		const saved = JSON.parse(raw);
-		if (!Array.isArray(saved.bodies)) return null;
-		// migrate models saved before velocity existed
-		for (const body of saved.bodies) {
-			body.velocity ??= { x: 0, y: 0, z: 0 };
-		}
-		return saved;
+		return normalizeModel(JSON.parse(raw));
 	} catch {
 		return null;
 	}
@@ -98,6 +101,20 @@ function createBodiesStore() {
 			bodies = [];
 			selectedId = null;
 			counter = 0;
+		},
+		serialize() {
+			return {
+				bodies: $state.snapshot(bodies),
+				selectedId,
+				counter
+			};
+		},
+		load(data) {
+			const model = normalizeModel(data);
+			if (!model) throw new Error('Invalid project data');
+			bodies = model.bodies;
+			selectedId = model.selectedId ?? null;
+			counter = model.counter ?? 0;
 		}
 	};
 }
