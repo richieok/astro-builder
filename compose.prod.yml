@@ -10,4 +10,8 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+    environment:
+      - PROJECTS_DIR=/app/projects
+    volumes:
+      - ../projects:/app/projects
     logging: *default-logging

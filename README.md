@@ -90,6 +90,10 @@ The model persists across page refreshes: the store hydrates from `localStorage`
 
 The simulation (`$lib/three/physics/nbody.js`) rides the same seam: pushed into the render loop's `updatables`, it integrates pairwise Newtonian gravity (semi-implicit Euler with softening) directly against the store each frame, and the sync effect carries the moving positions to the meshes. Play snapshots the initial conditions; Reset restores them. The localStorage save is debounced so the running simulation doesn't write every frame.
 
+### Named projects (Open / Save)
+
+Beyond the localStorage auto-save, the **Save** / **Save As…** / **Open** controls (top-left panel) persist named projects as JSON files on the server, via `$lib/server/projects.js` and the `/api/projects` routes. Files are named after the project and written to a `projects` folder that defaults to `../projects` relative to the app (i.e. next to this checkout), or the path in the `PROJECTS_DIR` env var. In Docker, both compose files bind-mount `../projects` on the host to `/app/projects` in the container and set `PROJECTS_DIR` to match, so saved projects land on the host and survive container rebuilds.
+
 ## Using the app
 
 - **＋ Add body** (left panel) creates a sphere, offset along X so new bodies don't overlap, and selects it.

@@ -9,6 +9,10 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5173:5173"
+    environment:
+      - PROJECTS_DIR=/app/projects
+    volumes:
+      - ../projects:/app/projects
     logging: *default-logging
     develop:
       watch:
