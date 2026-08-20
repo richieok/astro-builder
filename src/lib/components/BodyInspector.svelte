@@ -15,8 +15,8 @@
                 Mass
                 <input type="number" min="0" step="any" bind:value={body.mass} />
             </label>
-            <fieldset>
-                <legend>Position</legend>
+            <details open>
+                <summary>Position</summary>
                 <label>
                     X
                     <input type="number" step="0.1" bind:value={body.position.x} />
@@ -29,9 +29,9 @@
                     Z
                     <input type="number" step="0.1" bind:value={body.position.z} />
                 </label>
-            </fieldset>
-            <fieldset>
-                <legend>Velocity</legend>
+            </details>
+            <details>
+                <summary>Velocity</summary>
                 <label>
                     X
                     <input type="number" step="0.1" bind:value={body.velocity.x} />
@@ -44,7 +44,7 @@
                     Z
                     <input type="number" step="0.1" bind:value={body.velocity.z} />
                 </label>
-            </fieldset>
+            </details>
             <label>
                 Radius
                 <input type="number" min="0.1" step="0.1" bind:value={body.radius} />
@@ -110,19 +110,24 @@
     .slider input {
         width: 100%;
     }
-    fieldset {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
+    details {
         margin: 0;
         padding: 0.5rem 0.6rem;
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 0.25rem;
     }
-    legend {
+    details[open] > summary {
+        margin-bottom: 0.35rem;
+    }
+    details > label + label {
+        margin-top: 0.35rem;
+    }
+    summary {
         padding: 0 0.25rem;
         color: rgba(255, 255, 255, 0.7);
         font-size: 0.75rem;
+        cursor: pointer;
+        user-select: none;
     }
     .delete {
         margin-top: 0.25rem;
