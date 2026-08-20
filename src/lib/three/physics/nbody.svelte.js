@@ -3,7 +3,7 @@
 // the result to the meshes.
 export function createNBodySimulation(store, { G = 1, softening = 0.05 } = {}) {
 	let running = false;
-	let initial = null;
+	let initial = [];
 
 	function snapshotInitial() {
 		initial = store.bodies.map((b) => ({
@@ -13,6 +13,18 @@ export function createNBodySimulation(store, { G = 1, softening = 0.05 } = {}) {
 		}));
 	}
 
+	// Keep `initial` in sync with the store whenever it changes while the
+	// simulation isn't running, so Reset always restores the setup the user
+	// last configured. Physics only mutates the store while running, so
+	// this effect ignores changes made in that state — otherwise Reset
+	// would have nothing to undo a run back to.
+	$effect.root(() => {
+		$effect(() => {
+			$state.snapshot(store.bodies);
+			if (!running) snapshotInitial();
+		});
+	});
+
 	return {
 		get running() {
 			return running;
@@ -21,8 +33,6 @@ export function createNBodySimulation(store, { G = 1, softening = 0.05 } = {}) {
 			G = value;
 		},
 		start() {
-			if (running) return;
-			if (!initial) snapshotInitial();
 			running = true;
 		},
 		pause() {
@@ -30,14 +40,12 @@ export function createNBodySimulation(store, { G = 1, softening = 0.05 } = {}) {
 		},
 		reset() {
 			running = false;
-			if (!initial) return;
 			for (const saved of initial) {
 				store.update(saved.id, {
 					position: { ...saved.position },
 					velocity: { ...saved.velocity }
 				});
 			}
-			initial = null;
 		},
 		update(delta) {
 			if (!running) return;

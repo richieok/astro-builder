@@ -45,7 +45,10 @@ export function createAxesGizmo(camera, controls, { size = 100, padding = 10 } =
 
 	const rendererSize = new Vector2();
 
+	let visible = true;
+
 	function render(renderer) {
+		if (!visible) return;
 		// Mirror the main camera's orientation around the controls target.
 		gizmoCamera.position
 			.copy(camera.position)
@@ -76,5 +79,9 @@ export function createAxesGizmo(camera, controls, { size = 100, padding = 10 } =
 		}
 	}
 
-	return { render, dispose };
+	function setVisible(value) {
+		visible = value;
+	}
+
+	return { render, dispose, setVisible };
 }

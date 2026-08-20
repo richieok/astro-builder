@@ -86,6 +86,18 @@ export function createWorld(container) {
 			camera.position.copy(controls.target).addScaledVector(direction, distance);
 			camera.lookAt(controls.target);
 		},
+		setGridVisible(visible) {
+			grid.visible = visible;
+		},
+		setAxesGizmoVisible(visible) {
+			axesGizmo.setVisible(visible);
+		},
+		setVelocityArrowsVisible(visible) {
+			bodiesView.setVelocityArrowsVisible(visible);
+		},
+		setAxisVelocityArrowsVisible(visible) {
+			bodiesView.setAxisVelocityArrowsVisible(visible);
+		},
 		setAmbientLightVisible(visible) {
 			ambientLight.visible = visible;
 		},
