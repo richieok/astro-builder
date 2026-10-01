@@ -32,13 +32,17 @@ export function createAxesGizmo(camera, controls, { size = 100, padding = 10 } =
 	const axes = new AxesHelper(0.85);
 	scene.add(axes);
 
-	const labelX = createAxisLabel('X', '#ff4444');
-	labelX.position.set(1.05, 0, 0);
-	const labelY = createAxisLabel('Y', '#44cc44');
-	labelY.position.set(0, 1.05, 0);
-	const labelZ = createAxisLabel('Z', '#4488ff');
-	labelZ.position.set(0, 0, 1.05);
-	scene.add(labelX, labelY, labelZ);
+	const AXES = [
+		{ text: 'X', color: '#ff4444', position: [1.05, 0, 0] },
+		{ text: 'Y', color: '#44cc44', position: [0, 1.05, 0] },
+		{ text: 'Z', color: '#4488ff', position: [0, 0, 1.05] }
+	];
+	const labels = AXES.map(({ text, color, position }) => {
+		const label = createAxisLabel(text, color);
+		label.position.set(...position);
+		return label;
+	});
+	scene.add(...labels);
 
 	const frustum = 1.3;
 	const gizmoCamera = new OrthographicCamera(-frustum, frustum, frustum, -frustum, 0.1, 10);
@@ -73,7 +77,7 @@ export function createAxesGizmo(camera, controls, { size = 100, padding = 10 } =
 
 	function dispose() {
 		axes.dispose();
-		for (const label of [labelX, labelY, labelZ]) {
+		for (const label of labels) {
 			label.material.map.dispose();
 			label.material.dispose();
 		}

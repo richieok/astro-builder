@@ -18,6 +18,23 @@ const MAX_ARROW_LENGTH = 2;
 
 const _velocity = new THREE.Vector3();
 const _direction = new THREE.Vector3();
+const _axisVector = new THREE.Vector3();
+
+// Points arrow along vector, scaled+capped by its magnitude, or hides it
+// when the magnitude is negligible. Shared by the velocity arrow and the
+// three per-axis arrows, whose "vector" is that axis direction scaled by
+// its velocity component.
+function updateArrow(arrow, position, vector, radius, headLength, headWidth) {
+	const magnitude = vector.length();
+	if (magnitude > MIN_SPEED) {
+		arrow.visible = true;
+		arrow.position.copy(position);
+		arrow.setDirection(_direction.copy(vector).divideScalar(magnitude));
+		arrow.setLength(radius + Math.min(magnitude, MAX_ARROW_LENGTH), headLength, headWidth);
+	} else {
+		arrow.visible = false;
+	}
+}
 
 export function createBodiesView(scene) {
 	const group = new THREE.Group();
@@ -89,31 +106,13 @@ export function createBodiesView(scene) {
 				mesh.material.emissive.set(body.id === selectedId ? SELECTED_EMISSIVE : 0x000000);
 
 				_velocity.set(body.velocity.x, body.velocity.y, body.velocity.z);
-				const speed = _velocity.length();
-				if (speed > MIN_SPEED) {
-					arrow.visible = true;
-					arrow.position.copy(mesh.position);
-					arrow.setDirection(_direction.copy(_velocity).divideScalar(speed));
-					// arrow starts at the surface, length scales with speed (capped)
-					arrow.setLength(body.radius + Math.min(speed, MAX_ARROW_LENGTH), 0.2, 0.1);
-				} else {
-					arrow.visible = false;
-				}
+				// arrow starts at the surface, length scales with speed (capped)
+				updateArrow(arrow, mesh.position, _velocity, body.radius, 0.2, 0.1);
 
 				const components = [_velocity.x, _velocity.y, _velocity.z];
 				for (let i = 0; i < 3; i++) {
-					const axisArrow = axisArrows[i];
-					const magnitude = Math.abs(components[i]);
-					if (magnitude > MIN_SPEED) {
-						axisArrow.visible = true;
-						axisArrow.position.copy(mesh.position);
-						axisArrow.setDirection(
-							_direction.copy(AXIS_DIRECTIONS[i]).multiplyScalar(Math.sign(components[i]))
-						);
-						axisArrow.setLength(body.radius + Math.min(magnitude, MAX_ARROW_LENGTH), 0.15, 0.075);
-					} else {
-						axisArrow.visible = false;
-					}
+					_axisVector.copy(AXIS_DIRECTIONS[i]).multiplyScalar(components[i]);
+					updateArrow(axisArrows[i], mesh.position, _axisVector, body.radius, 0.15, 0.075);
 				}
 			}
 		},
