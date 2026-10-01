@@ -12,45 +12,42 @@
                 <input type="text" bind:value={body.name} />
             </label>
             <label>
-                Mass
+                Mass (kg)
                 <input type="number" min="0" step="any" bind:value={body.mass} />
             </label>
             <details open>
-                <summary>Position</summary>
+                <summary>Position (m)</summary>
                 <label>
                     X
-                    <input type="number" step="0.1" bind:value={body.position.x} />
+                    <input type="number" step="any" bind:value={body.position.x} />
                 </label>
                 <label>
                     Y
-                    <input type="number" step="0.1" bind:value={body.position.y} />
+                    <input type="number" step="any" bind:value={body.position.y} />
                 </label>
                 <label>
                     Z
-                    <input type="number" step="0.1" bind:value={body.position.z} />
+                    <input type="number" step="any" bind:value={body.position.z} />
                 </label>
             </details>
             <details>
-                <summary>Velocity</summary>
+                <summary>Velocity (m/s)</summary>
                 <label>
                     X
-                    <input type="number" step="0.1" bind:value={body.velocity.x} />
+                    <input type="number" step="any" bind:value={body.velocity.x} />
                 </label>
                 <label>
                     Y
-                    <input type="number" step="0.1" bind:value={body.velocity.y} />
+                    <input type="number" step="any" bind:value={body.velocity.y} />
                 </label>
                 <label>
                     Z
-                    <input type="number" step="0.1" bind:value={body.velocity.z} />
+                    <input type="number" step="any" bind:value={body.velocity.z} />
                 </label>
             </details>
             <label>
-                Radius
-                <input type="number" min="0.1" step="0.1" bind:value={body.radius} />
-            </label>
-            <label class="slider">
-                <input type="range" min="0.1" max="5" step="0.1" bind:value={body.radius} />
+                Radius (m)
+                <input type="number" min="1" step="any" bind:value={body.radius} />
             </label>
             <label>
                 Color

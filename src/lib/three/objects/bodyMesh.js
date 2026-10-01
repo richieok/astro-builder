@@ -8,8 +8,6 @@ export function createBodyMesh(body) {
 	const mesh = new THREE.Mesh(unitSphere, createStandardMaterial({ color: body.color }));
 	mesh.name = body.name;
 	mesh.userData.bodyId = body.id;
-	mesh.position.set(body.position.x, body.position.y, body.position.z);
-	mesh.scale.setScalar(body.radius);
 	return mesh;
 }
 

@@ -42,6 +42,47 @@ export function createWorld(container) {
 
 	const loop = createLoop({ renderer, scene, camera, controls });
 
+	// Clip planes follow the camera's distance from its target, so bodies
+	// drawn at true scale (thousands of scene units across) don't get sliced
+	// by a fixed far plane, and close-ups don't hit the near plane. The
+	// near/far ratio stays at 1e6, which a 24-bit depth buffer handles.
+	loop.updatables.push({
+		update() {
+			const distance = camera.position.distanceTo(controls.target);
+			const near = distance * 1e-3;
+			if (Math.abs(near - camera.near) > near * 0.01) {
+				camera.near = near;
+				camera.far = distance * 1e3;
+				camera.updateProjectionMatrix();
+			}
+		}
+	});
+
+	// Moves the camera and orbit target along with the followed body. On a
+	// new selection the target snaps onto the body; after that it only
+	// tracks the body's movement, so a user pan stays as an offset.
+	let followId = null;
+	let followPrev = null;
+	const _shift = new Vector3();
+	loop.updatables.push({
+		update() {
+			const mesh = followId && bodiesView.getMesh(followId);
+			if (!mesh) {
+				followPrev = null;
+				return;
+			}
+			if (followPrev) {
+				_shift.copy(mesh.position).sub(followPrev);
+			} else {
+				followPrev = new Vector3();
+				_shift.copy(mesh.position).sub(controls.target);
+			}
+			followPrev.copy(mesh.position);
+			controls.target.add(_shift);
+			camera.position.add(_shift);
+		}
+	});
+
 	const axesGizmo = createAxesGizmo(camera, controls);
 	loop.overlays.push(axesGizmo);
 
@@ -73,8 +114,8 @@ export function createWorld(container) {
 		renderer,
 		controls,
 		dispose,
-		syncBodies(bodies, selectedId) {
-			bodiesView.sync(bodies, selectedId);
+		syncBodies(bodies, selectedId, metresPerUnit) {
+			bodiesView.sync(bodies, selectedId, metresPerUnit);
 		},
 		addUpdatable(updatable) {
 			loop.updatables.push(updatable);
@@ -85,6 +126,10 @@ export function createWorld(container) {
 			const distance = camera.position.distanceTo(controls.target);
 			camera.position.copy(controls.target).addScaledVector(direction, distance);
 			camera.lookAt(controls.target);
+		},
+		setFollow(id) {
+			if (id !== followId) followPrev = null;
+			followId = id;
 		},
 		setGridVisible(visible) {
 			grid.visible = visible;

@@ -1,13 +1,41 @@
 import { browser } from '$app/environment';
+import { G, EARTH_MASS, EARTH_RADIUS, MOON_DISTANCE } from '$lib/three/physics/constants.js';
 
 const DEFAULT_COLOR = '#4f9cf0';
 const STORAGE_KEY = 'astro-builder:model';
+
+const UNITS = 'si';
+
+// Models saved before the sim moved to SI units were in G=1 units. They map
+// onto SI exactly (same orbits) by picking a length and mass unit and
+// deriving the time unit that keeps G = 1: T = sqrt(L^3 / (G * M)).
+const LEGACY_LENGTH = 1e9; // m
+const LEGACY_MASS = 1e24; // kg
+const LEGACY_SPEED = LEGACY_LENGTH / Math.sqrt(LEGACY_LENGTH ** 3 / (G * LEGACY_MASS)); // m/s
+
+function migrateLegacy(model) {
+	const scale = (v, k) => {
+		v.x *= k;
+		v.y *= k;
+		v.z *= k;
+	};
+	for (const body of model.bodies) {
+		body.mass *= LEGACY_MASS;
+		body.radius *= LEGACY_LENGTH;
+		scale(body.position, LEGACY_LENGTH);
+		scale(body.velocity, LEGACY_SPEED);
+	}
+}
 
 function normalizeModel(model) {
 	if (!model || !Array.isArray(model.bodies)) return null;
 	// migrate models saved before velocity existed
 	for (const body of model.bodies) {
 		body.velocity ??= { x: 0, y: 0, z: 0 };
+	}
+	if (model.units !== UNITS) {
+		migrateLegacy(model);
+		model.units = UNITS;
 	}
 	return model;
 }
@@ -41,6 +69,7 @@ function createBodiesStore() {
 				// is debounced so the running simulation doesn't hit
 				// localStorage every frame
 				pending = JSON.stringify({
+					units: UNITS,
 					bodies: $state.snapshot(bodies),
 					selectedId,
 					counter
@@ -72,11 +101,11 @@ function createBodiesStore() {
 			const body = {
 				id: crypto.randomUUID(),
 				name: `Body ${counter}`,
-				mass: 1,
+				mass: EARTH_MASS,
 				// offset new bodies so they don't stack invisibly at the origin
-				position: { x: bodies.length * 2, y: 0, z: 0 },
+				position: { x: bodies.length * MOON_DISTANCE, y: 0, z: 0 },
 				velocity: { x: 0, y: 0, z: 0 },
-				radius: 0.5,
+				radius: EARTH_RADIUS,
 				color: DEFAULT_COLOR,
 				...partial
 			};
@@ -104,6 +133,7 @@ function createBodiesStore() {
 		},
 		serialize() {
 			return {
+				units: UNITS,
 				bodies: $state.snapshot(bodies),
 				selectedId,
 				counter
