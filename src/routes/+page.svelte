@@ -33,6 +33,8 @@
     // View only; physics uses real metres.
     let zoomExp = $state(-DEFAULT_SCALE_EXP);
     const metresPerUnit = $derived(10 ** -zoomExp);
+    // minor grid spacing, reported by the world (depends on camera distance too)
+    let gridSpacingMetres = $state(1);
 
     function fitView() {
         const farthest = Math.max(
@@ -53,6 +55,7 @@
     onMount(() => {
         const w = createWorld(container);
         w.addUpdatable(sim);
+        w.onGridSpacing((spacing) => (gridSpacingMetres = spacing));
         world = w;
         fitView();
         return w.dispose;
@@ -91,6 +94,9 @@
     });
     $effect(() => {
         world?.setAmbientIntensity(ambientIntensity);
+    });
+    $effect(() => {
+        world?.setGridScale(metresPerUnit);
     });
     $effect(() => {
         world?.setGridVisible(overlaysStore.grid);
@@ -182,7 +188,7 @@
                     <input type="range" min="-2" max="2" step="0.1" bind:value={timeScaleExp} />
                 </label>
                 <label class="slider">
-                    Zoom: 1 grid square = {formatLength(metresPerUnit)}
+                    Zoom: 1 grid square = {formatLength(gridSpacingMetres)}
                     <input
                         type="range"
                         min={-MAX_SCALE_EXP}
@@ -339,6 +345,7 @@
         flex-direction: column;
         align-items: stretch;
         gap: 0.25rem;
+        white-space: normal;
     }
     .sim-panel label,
     .view-panel label {

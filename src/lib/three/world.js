@@ -1,4 +1,4 @@
-import { Vector3, GridHelper } from 'three';
+import { Vector3 } from 'three';
 import { createScene } from './scene.js';
 import { createCamera } from './camera.js';
 import { createRenderer } from './renderer.js';
@@ -6,6 +6,7 @@ import { createControls } from './controls.js';
 import { createHemisphereLight, createAmbientLight } from './lights.js';
 import { createLoop } from './systems/loop.js';
 import { createAxesGizmo } from './helpers/axesGizmo.js';
+import { createScaleGrid } from './helpers/scaleGrid.js';
 import { createBodiesView } from './bodiesView.js';
 
 const VIEW_DIRECTIONS = {
@@ -27,9 +28,10 @@ export function createWorld(container) {
 
 	const controls = createControls(camera, renderer.domElement);
 
-	const grid = new GridHelper(50, 50, 0x444444, 0x222222);
-	grid.name = 'Grid';
-	scene.add(grid);
+	const grid = createScaleGrid();
+	scene.add(grid.object);
+	let gridSpacing = null;
+	let onGridSpacing = null;
 
 	const hemisphereLight = createHemisphereLight();
 	hemisphereLight.visible = false;
@@ -83,6 +85,16 @@ export function createWorld(container) {
 		}
 	});
 
+	loop.updatables.push({
+		update() {
+			const spacing = grid.update(controls.target, camera.position.distanceTo(controls.target));
+			if (spacing !== gridSpacing) {
+				gridSpacing = spacing;
+				onGridSpacing?.(spacing);
+			}
+		}
+	});
+
 	const axesGizmo = createAxesGizmo(camera, controls);
 	loop.overlays.push(axesGizmo);
 
@@ -102,6 +114,7 @@ export function createWorld(container) {
 		loop.stop();
 		resizeObserver.disconnect();
 		axesGizmo.dispose();
+		grid.dispose();
 		bodiesView.dispose();
 		controls.dispose();
 		renderer.dispose();
@@ -114,6 +127,14 @@ export function createWorld(container) {
 		renderer,
 		controls,
 		dispose,
+		// Called with the minor grid spacing (metres) whenever it changes.
+		onGridSpacing(callback) {
+			onGridSpacing = callback;
+			if (gridSpacing !== null) callback(gridSpacing);
+		},
+		setGridScale(metresPerUnit) {
+			grid.setScale(metresPerUnit);
+		},
 		syncBodies(bodies, selectedId, metresPerUnit) {
 			bodiesView.sync(bodies, selectedId, metresPerUnit);
 		},
@@ -132,7 +153,7 @@ export function createWorld(container) {
 			followId = id;
 		},
 		setGridVisible(visible) {
-			grid.visible = visible;
+			grid.object.visible = visible;
 		},
 		setAxesGizmoVisible(visible) {
 			axesGizmo.setVisible(visible);
