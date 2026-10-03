@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createBodyMesh, disposeBodyMesh } from './objects/bodyMesh.js';
+import { toScenePosition, toSceneRadius, toArrowLength } from './utils/viewScale.js';
 
 const SELECTED_EMISSIVE = 0x666666;
 const ARROW_COLOR = 0xffcc44;
@@ -10,7 +11,7 @@ const AXIS_DIRECTIONS = [
 	new THREE.Vector3(0, 1, 0),
 	new THREE.Vector3(0, 0, 1)
 ];
-const MIN_SPEED = 1e-4;
+const MIN_SPEED = 1e-4; // m/s
 // Cap how far a velocity arrow can grow past the body's surface, so a
 // fast-moving body (e.g. after a mass increase elsewhere skews gravity)
 // doesn't produce an arrow that dwarfs the scene.
@@ -20,7 +21,7 @@ const _velocity = new THREE.Vector3();
 const _direction = new THREE.Vector3();
 const _axisVector = new THREE.Vector3();
 
-// Points arrow along vector, scaled+capped by its magnitude, or hides it
+// Points arrow along vector, log-scaled+capped by its magnitude, or hides it
 // when the magnitude is negligible. Shared by the velocity arrow and the
 // three per-axis arrows, whose "vector" is that axis direction scaled by
 // its velocity component.
@@ -30,7 +31,7 @@ function updateArrow(arrow, position, vector, radius, headLength, headWidth) {
 		arrow.visible = true;
 		arrow.position.copy(position);
 		arrow.setDirection(_direction.copy(vector).divideScalar(magnitude));
-		arrow.setLength(radius + Math.min(magnitude, MAX_ARROW_LENGTH), headLength, headWidth);
+		arrow.setLength(radius + Math.min(toArrowLength(magnitude), MAX_ARROW_LENGTH), headLength, headWidth);
 	} else {
 		arrow.visible = false;
 	}
@@ -66,7 +67,7 @@ export function createBodiesView(scene) {
 	}
 
 	return {
-		sync(bodies, selectedId) {
+		sync(bodies, selectedId, metresPerUnit) {
 			const ids = new Set(bodies.map((b) => b.id));
 			for (const id of [...entries.keys()]) {
 				if (!ids.has(id)) removeEntry(id);
@@ -100,19 +101,20 @@ export function createBodiesView(scene) {
 				}
 				const { mesh, arrow, axisArrows } = entry;
 				mesh.name = body.name;
-				mesh.position.set(body.position.x, body.position.y, body.position.z);
-				mesh.scale.setScalar(body.radius);
+				toScenePosition(body.position, metresPerUnit, mesh.position);
+				const radius = toSceneRadius(body.radius, metresPerUnit);
+				mesh.scale.setScalar(radius);
 				mesh.material.color.set(body.color);
 				mesh.material.emissive.set(body.id === selectedId ? SELECTED_EMISSIVE : 0x000000);
 
 				_velocity.set(body.velocity.x, body.velocity.y, body.velocity.z);
 				// arrow starts at the surface, length scales with speed (capped)
-				updateArrow(arrow, mesh.position, _velocity, body.radius, 0.2, 0.1);
+				updateArrow(arrow, mesh.position, _velocity, radius, 0.2, 0.1);
 
 				const components = [_velocity.x, _velocity.y, _velocity.z];
 				for (let i = 0; i < 3; i++) {
 					_axisVector.copy(AXIS_DIRECTIONS[i]).multiplyScalar(components[i]);
-					updateArrow(axisArrows[i], mesh.position, _axisVector, body.radius, 0.15, 0.075);
+					updateArrow(axisArrows[i], mesh.position, _axisVector, radius, 0.15, 0.075);
 				}
 			}
 		},

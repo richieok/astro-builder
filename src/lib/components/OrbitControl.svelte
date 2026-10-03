@@ -1,7 +1,6 @@
 <script>
     import { bodiesStore } from "$lib/stores/bodies.svelte.js";
-
-    let { gravityG } = $props();
+    import { G } from "$lib/three/physics/constants.js";
 
     const body = $derived(bodiesStore.selected);
     const others = $derived(bodiesStore.bodies.filter((b) => b.id !== body?.id));
@@ -44,7 +43,7 @@
         const dy = body.position.y - target.position.y;
         const dz = body.position.z - target.position.z;
         const r = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (r < 1e-6) return;
+        if (r === 0) return;
 
         // Tangent = radius vector crossed with world "up", giving a
         // direction perpendicular to the radius (falls back to "right"
@@ -65,7 +64,7 @@
         tz /= tLen;
 
         // Circular-orbit speed for the two-body case: v = sqrt(G*M/r).
-        const speed = Math.sqrt((gravityG * target.mass) / r);
+        const speed = Math.sqrt((G * target.mass) / r);
 
         bodiesStore.update(body.id, {
             velocity: {

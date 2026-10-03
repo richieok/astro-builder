@@ -2,6 +2,13 @@
     import { onMount } from "svelte";
     import { createWorld } from "$lib/three/world.js";
     import { createNBodySimulation } from "$lib/three/physics/nbody.svelte.js";
+    import { SECONDS_PER_DAY } from "$lib/three/physics/constants.js";
+    import {
+        DEFAULT_SCALE_EXP,
+        MIN_SCALE_EXP,
+        MAX_SCALE_EXP,
+        formatLength,
+    } from "$lib/three/utils/viewScale.js";
     import { bodiesStore } from "$lib/stores/bodies.svelte.js";
     import { overlaysStore } from "$lib/stores/overlays.svelte.js";
     import BodyList from "$lib/components/BodyList.svelte";
@@ -16,24 +23,46 @@
     let listVisible = $state(true);
     let listTab = $state("bodies");
     let inspectorVisible = $state(true);
+    let followSelected = $state(true);
 
     let ambientLightVisible = $state(true);
     let hemisphereLightVisible = $state(false);
     let ambientIntensity = $state(1);
 
+    // Zoom is log10(scene units per metre), so dragging right zooms in.
+    // View only; physics uses real metres.
+    let zoomExp = $state(-DEFAULT_SCALE_EXP);
+    const metresPerUnit = $derived(10 ** -zoomExp);
+    // minor grid spacing, reported by the world (depends on camera distance too)
+    let gridSpacingMetres = $state(1);
+
+    function fitView() {
+        const farthest = Math.max(
+            ...bodiesStore.bodies.map((b) => Math.hypot(b.position.x, b.position.y, b.position.z)),
+        );
+        if (!(farthest > 0)) return;
+        // put the farthest body ~10 scene units out, rounded to the slider step
+        const exp = Math.log10(farthest / 10);
+        zoomExp = -Math.min(MAX_SCALE_EXP, Math.max(MIN_SCALE_EXP, Math.round(exp * 10) / 10));
+    }
+
     const sim = createNBodySimulation(bodiesStore);
     let simRunning = $state(false);
-    let gravityG = $state(1);
+    // log10 of simulated days per real second
+    let timeScaleExp = $state(0);
+    const daysPerSecond = $derived(10 ** timeScaleExp);
 
     onMount(() => {
         const w = createWorld(container);
         w.addUpdatable(sim);
+        w.onGridSpacing((spacing) => (gridSpacingMetres = spacing));
         world = w;
+        fitView();
         return w.dispose;
     });
 
     $effect(() => {
-        sim.setG(gravityG);
+        sim.setTimeScale(daysPerSecond * SECONDS_PER_DAY);
     });
 
     function toggleSim() {
@@ -52,7 +81,10 @@
 
     $effect(() => {
         if (!world) return;
-        world.syncBodies($state.snapshot(bodiesStore.bodies), bodiesStore.selectedId);
+        world.syncBodies($state.snapshot(bodiesStore.bodies), bodiesStore.selectedId, metresPerUnit);
+    });
+    $effect(() => {
+        world?.setFollow(followSelected ? bodiesStore.selectedId : null);
     });
     $effect(() => {
         world?.setAmbientLightVisible(ambientLightVisible);
@@ -62,6 +94,9 @@
     });
     $effect(() => {
         world?.setAmbientIntensity(ambientIntensity);
+    });
+    $effect(() => {
+        world?.setGridScale(metresPerUnit);
     });
     $effect(() => {
         world?.setGridVisible(overlaysStore.grid);
@@ -128,7 +163,7 @@
                     <OverlayList />
                 </div>
             {/if}
-            <OrbitControl {gravityG} />
+            <OrbitControl />
         </div>
     {/if}
 
@@ -149,12 +184,27 @@
                     <button onclick={resetSim}>Reset</button>
                 </div>
                 <label class="slider">
-                    Gravity G {gravityG.toFixed(1)}
-                    <input type="range" min="0" max="5" step="0.1" bind:value={gravityG} />
+                    Time scale {daysPerSecond.toPrecision(2)} days/s
+                    <input type="range" min="-2" max="2" step="0.1" bind:value={timeScaleExp} />
                 </label>
+                <label class="slider">
+                    Zoom: 1 grid square = {formatLength(gridSpacingMetres)}
+                    <input
+                        type="range"
+                        min={-MAX_SCALE_EXP}
+                        max={-MIN_SCALE_EXP}
+                        step="0.1"
+                        bind:value={zoomExp}
+                    />
+                </label>
+                <button onclick={fitView}>Fit view</button>
             </div>
             <BodyInspector />
             <div class="view-panel">
+                <label>
+                    <input type="checkbox" bind:checked={followSelected} />
+                    Follow selected body
+                </label>
                 <label>
                     <input type="checkbox" bind:checked={ambientLightVisible} />
                     Ambient light
@@ -295,6 +345,7 @@
         flex-direction: column;
         align-items: stretch;
         gap: 0.25rem;
+        white-space: normal;
     }
     .sim-panel label,
     .view-panel label {
